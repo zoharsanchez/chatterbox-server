@@ -11,6 +11,7 @@ this file and include it in basic-server.js so that it actually works.
 *Hint* Check out the node module documentation at http://nodejs.org/api/modules.html.
 
 **************************************************************/
+var results = [];
 
 var requestHandler = function(request, response) {
   // Request and Response come from node's http module.
@@ -34,34 +35,54 @@ var requestHandler = function(request, response) {
 
   // See the note below about CORS headers.
   var headers = defaultCorsHeaders;
+  headers['Content-Type'] = 'application/json';
 
-  var results = [];
-
+  var endpoints = ['/send', '/log', '/classes/messages'];
+  var body = [];
+  
   var responseBody = {
-    url: request.url,
+    headers: headers,
     method: request.method,
+    url: request.url,
     results: results
   };
 
+  // message sent by POST
+  // var body = '';
+  
+  if (request.method === 'OPTIONS') {
+    response.writeHead(statusCode, headers);
+    response.end(JSON.stringify(responseBody));
+  } else if (request.method === 'POST') {
 
-  // Tell the client we are sending them plain text.
-  //
-  // You will need to change this if you are sending something
-  // other than plain text, like JSON or HTML.
-  headers['Content-Type'] = 'application/json';
+    statusCode = 201;
 
-  // .writeHead() writes to the request line and headers of the response,
-  // which includes the status and all headers.
-  response.writeHead(statusCode, headers);
+    request.on('error', function(err) {
+      console.error(err);
+    });
 
-  // Make sure to always call response.end() - Node may not send
-  // anything back to the client until you do. The string you pass to
-  // response.end() will be the body of the response - i.e. what shows
-  // up in the browser.
-  //
-  // Calling .end "flushes" the response's internal buffer, forcing
-  // node to actually send all the data over to the client.
-  response.end(JSON.stringify(responseBody));
+    request.on('data', function(chunk) {
+      body.push(chunk);
+    });
+
+    request.on('end', function() {
+      body = Buffer.concat(body).toString();
+      results.push(JSON.parse(body));
+
+      response.writeHead(statusCode, headers);
+      console.log(JSON.parse(JSON.stringify(responseBody)));
+      response.end(JSON.stringify(responseBody));
+    });
+    
+  } else if (endpoints.indexOf(request.url) === -1) {
+    statusCode = 404;
+    response.writeHead(statusCode, headers);
+  } else if (request.method === 'GET') {
+    console.log('in get');
+    response.writeHead(statusCode, headers);
+    response.end(JSON.stringify(responseBody));
+  }
+
 };
 
 // These headers will allow Cross-Origin Resource Sharing (CORS).
@@ -80,5 +101,5 @@ var defaultCorsHeaders = {
   'access-control-max-age': 10 // Seconds.
 };
 
-module.exports = requestHandler;
+module.exports.requestHandler = requestHandler;
 
