@@ -11,7 +11,11 @@ this file and include it in basic-server.js so that it actually works.
 *Hint* Check out the node module documentation at http://nodejs.org/api/modules.html.
 
 **************************************************************/
-var results = [];
+var results = [{
+  username: 'Mark',
+  roomname: 'lobby',
+  text: 'Hello, my name is Mark'
+}];
 
 var requestHandler = function(request, response) {
   // Request and Response come from node's http module.
@@ -37,8 +41,7 @@ var requestHandler = function(request, response) {
   var headers = defaultCorsHeaders;
   headers['Content-Type'] = 'application/json';
 
-  var endpoints = ['/send', '/log', '/classes/messages'];
-  var body = [];
+  var endpoints = ['/send', '/log', '/classes/messages', '/classes/room'];
   
   var responseBody = {
     headers: headers,
@@ -47,12 +50,34 @@ var requestHandler = function(request, response) {
     results: results
   };
 
-  // message sent by POST
-  // var body = '';
+  var isValidEndpoint = function() {
+    for (var i = 0; i < endpoints.length; i++) {
+      if (request.url.search(new RegExp(endpoints[i])) > -1) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   
+  if (!isValidEndpoint()) {
+    console.log(request.url);
+    console.log('inside 404');
+    statusCode = 404;
+    response.writeHead(statusCode, headers);
+    response.end();
+  }
+
   if (request.method === 'OPTIONS') {
+
+    response.writeHead(statusCode, headers);
+    response.end();
+
+  } else if (request.method === 'GET') {
+
     response.writeHead(statusCode, headers);
     response.end(JSON.stringify(responseBody));
+
   } else if (request.method === 'POST') {
 
     statusCode = 201;
@@ -61,26 +86,19 @@ var requestHandler = function(request, response) {
       console.error(err);
     });
 
+    var body = [];
     request.on('data', function(chunk) {
       body.push(chunk);
     });
 
     request.on('end', function() {
-      body = Buffer.concat(body).toString();
+      body = body.join().toString();
       results.push(JSON.parse(body));
-
+      console.log('Results array is: ', results);
       response.writeHead(statusCode, headers);
-      console.log(JSON.parse(JSON.stringify(responseBody)));
       response.end(JSON.stringify(responseBody));
     });
     
-  } else if (endpoints.indexOf(request.url) === -1) {
-    statusCode = 404;
-    response.writeHead(statusCode, headers);
-  } else if (request.method === 'GET') {
-    console.log('in get');
-    response.writeHead(statusCode, headers);
-    response.end(JSON.stringify(responseBody));
   }
 
 };
